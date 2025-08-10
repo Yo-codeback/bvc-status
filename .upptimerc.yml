@@ -1,36 +1,39 @@
 # Change these first
-owner: upptime # Your GitHub organization or username, where this repository lives
-repo: upptime # The name of this repository
+owner: Yo-codeback |　鹿中創客 # Your GitHub organization or username, where this repository lives
+repo: bvc-status # The name of this repository
 
 sites:
-  - name: Google
-    url: https://www.google.com
-  - name: Wikipedia
-    url: https://en.wikipedia.org
-  - name: Hacker News
-    url: https://news.ycombinator.com
-  - name: Test Broken Site
-    url: https://thissitedoesnotexist.koj.co
-  - name: IPv6 test
-    url: forwardemail.net
-    port: 80
-    check: "tcp-ping"
-    ipv6: true
-
+  - name: our_api 主要資料 (資料來源)
+    url: https://bvc-api.deno.dev
+    assignees: 
+      - Yo-codeback
+      - 鹿中創客
+  - name: moa_api 農業部資料 (副資料來源) 
+    url: https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx
+    assignees: 
+      - 農業部農糧暑
+  - name: notify_api 通知頁面 (通知內容)
+    url: https://bvcaanotify.deno.dev
+    assignees: 
+      - Yo-codeback
+  - name: crop_api 作物分類 (作物分類對照表)
+    url: https://not_online.com
+    assignees: 
+      - Yo-codeback
+          
 status-website:
   # Add your custom domain name, or remove the `cname` line if you don't have a domain
-  # Uncomment the `baseUrl` line if you don't have a custom domain and add your repo name there
-  cname: demo.upptime.js.org
+  baseUrl: /bvc-status # where "repo" is your repository name
   # baseUrl: /your-repo-name
   logoUrl: https://raw.githubusercontent.com/upptime/upptime.js.org/master/static/img/icon.svg
-  name: Upptime
-  introTitle: "**Upptime** is the open-source uptime monitor and status page, powered entirely by GitHub."
-  introMessage: This is a sample status page which uses **real-time** data from our [GitHub repository](https://github.com/upptime/upptime). No server required — just GitHub Actions, Issues, and Pages. [**Get your own for free**](https://github.com/upptime/upptime)
+  name: 農產分析 | android版本狀態頁面 | 鹿中創客
+  introTitle: "農產分析 android 版本 現在正在實施封測!  |  此網站由 upptime提供協助"
+  introMessage: 此網站由 upptime 提供協助
   navbar:
     - title: Status
       href: /
-    - title: GitHub
-      href: https://github.com/$OWNER/$REPO
+    # - title: GitHub
+      # href: https://github.com/$OWNER/$REPO
 
 # Upptime also supports notifications, assigning issues, and more
 # See https://upptime.js.org/docs/configuration
