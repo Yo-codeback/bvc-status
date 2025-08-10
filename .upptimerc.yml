@@ -31,7 +31,7 @@ status-website:
   introMessage: "此網站由 upptime 提供協助"
   navbar:
     - title: Status
-      href: /
+      href: /bvc-status
     # - title: GitHub
       # href: https://github.com/$OWNER/$REPO
 
