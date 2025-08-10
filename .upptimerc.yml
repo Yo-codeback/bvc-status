@@ -7,28 +7,28 @@ sites:
     url: https://bvc-api.deno.dev
     assignees: 
       - Yo-codeback
-      - 鹿中創客
+      - LukuMaker
   - name: moa_api 農業部資料 (副資料來源) 
     url: https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx
     assignees: 
-      - 農業部農糧暑
+      - moa
   - name: notify_api 通知頁面 (通知內容)
     url: https://bvcaanotify.deno.dev
     assignees: 
-      - Yo-codeback
+      - LukuMaker
   - name: crop_api 作物分類 (作物分類對照表)
     url: https://not_online.com
     assignees: 
-      - Yo-codeback
+      - LukuMaker
           
 status-website:
   # Add your custom domain name, or remove the `cname` line if you don't have a domain
   baseUrl: /bvc-status # where "repo" is your repository name
   # baseUrl: /your-repo-name
   logoUrl: https://raw.githubusercontent.com/upptime/upptime.js.org/master/static/img/icon.svg
-  name: 農產分析 | android版本狀態頁面 | 鹿中創客
-  introTitle: "農產分析 android 版本 現在正在實施封測!  |  此網站由 upptime提供協助"
-  introMessage: 此網站由 upptime 提供協助
+  name: "農產分析"
+  introTitle: "農產分析 android 版本 現在正在實施封測!"
+  introMessage: "此網站由 upptime 提供協助"
   navbar:
     - title: Status
       href: /
