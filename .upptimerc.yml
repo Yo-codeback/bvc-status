@@ -16,10 +16,6 @@ sites:
     url: https://bvcaanotify.deno.dev
     assignees: 
       - LukuMaker
-  - name: crop_api 作物分類 (作物分類對照表)
-    url: https://not_online.com
-    assignees: 
-      - LukuMaker
           
 status-website:
   # Add your custom domain name, or remove the `cname` line if you don't have a domain
