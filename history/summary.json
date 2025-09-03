@@ -22,7 +22,7 @@
     "url": "https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx",
     "icon": "https://icons.duckduckgo.com/ip3/data.moa.gov.tw.ico",
     "slug": "moa-api",
-    "status": "up",
+    "status": "down",
     "uptime": "99.02%",
     "uptimeDay": "92.05%",
     "uptimeWeek": "98.57%",
