@@ -43,7 +43,7 @@ try {
   console.log('🎉 所有 Discord.js 組件都正常運作！');
   
 } catch (error) {
-  console.error('❌ Discord.js 載入失敗:', error.message);
-  console.error('💡 請確認已安裝 discord.js: npm install discord.js');
+  console.error('❌ 套件載入失敗:', error.message);
+  console.error('💡 請確認已安裝所需套件: npm install discord.js js-yaml');
   process.exit(1);
 }
