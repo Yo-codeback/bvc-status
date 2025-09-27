@@ -242,6 +242,9 @@ async function main() {
   const channelId = '1421404291444510783'; // 指定的頻道ID
   const messageType = process.env.MESSAGE_TYPE || 'routine'; // routine, outage, recovery
   
+  // 要 Tag 的用戶 ID
+  const alertUserId = '<@1106816996655513620>'; 
+  
   if (!botToken) {
     console.error('❌ 未找到 bot_token 環境變數');
     process.exit(1);
@@ -274,6 +277,17 @@ async function main() {
     // 創建狀態嵌入
     const statusEmbed = createStatusEmbed(siteResults, messageType);
     
+    // 檢查是否有異常或緩慢狀態
+    const hasDown = siteResults.some(site => site.status === 'down');
+    const hasSlow = siteResults.some(site => site.status === 'slow');
+    
+    // 準備發送的內容
+    let content = '';
+    if (hasDown || hasSlow) {
+        // 如果有紅燈或黃燈，加入 Tag
+        content = `${alertUserId} 注意！檢測到服務 **🔴異常** 或 **🟡緩慢**，請查看詳細報告。`;
+    }
+    
     // 發送狀態訊息到指定頻道
     const channel = await client.channels.fetch(channelId);
     if (!channel) {
@@ -281,33 +295,35 @@ async function main() {
       return;
     }
     
-    await channel.send({ embeds: [statusEmbed] });
+    // 使用 content 欄位發送 Tag 和文字，並附帶 Embed
+    await channel.send({ 
+        content: content, // 包含 Tag 的文字
+        embeds: [statusEmbed] 
+    });
     console.log(`✅ 狀態報告已發送到頻道 ${channelId}`);
     
-    // 根據狀態發送額外的通知
-    const hasDown = siteResults.some(site => site.status === 'down');
-    const hasSlow = siteResults.some(site => site.status === 'slow');
-    
-    if (hasDown) {
-      // 如果有服務異常，發送緊急通知
-      const alertEmbed = new EmbedBuilder()
-        .setTitle('🚨 緊急告警')
-        .setDescription('檢測到服務異常，請立即檢查！')
-        .setColor(0xff0000)
-        .setTimestamp();
+    // 【可選：移除此段】原本針對 Down 狀態的額外緊急告警，現在 Tag 已經包含在上面了
+    // if (hasDown) {
+    //   // 如果有服務異常，發送緊急通知
+    //   const alertEmbed = new EmbedBuilder()
+    //     .setTitle('🚨 緊急告警')
+    //     .setDescription('檢測到服務異常，請立即檢查！')
+    //     .setColor(0xff0000)
+    //     .setTimestamp();
       
-      const downSites = siteResults.filter(site => site.status === 'down');
-      downSites.forEach(site => {
-        alertEmbed.addFields({
-          name: `🔴 ${site.name}`,
-          value: `狀態: ${site.statusInfo.text}\n響應時間: ${site.responseTime}ms`,
-          inline: true
-        });
-      });
+    //   const downSites = siteResults.filter(site => site.status === 'down');
+    //   downSites.forEach(site => {
+    //     alertEmbed.addFields({
+    //       name: `🔴 ${site.name}`,
+    //       value: `狀態: ${site.statusInfo.text}\n響應時間: ${site.responseTime}ms`,
+    //       inline: true
+    //     });
+    //   });
       
-      await channel.send({ embeds: [alertEmbed] });
-      console.log('🚨 緊急告警已發送');
-    }
+    //   await channel.send({ embeds: [alertEmbed] });
+    //   console.log('🚨 緊急告警已發送');
+    // }
+    // 【可選：移除此段 結束】
     
   } catch (error) {
     console.error('❌ Bot 執行過程中發生錯誤:', error.message);
