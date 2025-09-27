@@ -44,39 +44,8 @@ function readYamlFile(filePath) {
 }
 
 /**
- * 判斷服務狀態（基於 YAML 數據）
- */
-function determineServiceStatus(yamlData) {
-  // YAML 檔案直接包含 status 欄位
-  if (yamlData.status) {
-    return yamlData.status;
-  }
-  
-  // 根據 HTTP 狀態碼判斷
-  if (yamlData.code) {
-    if (yamlData.code >= 200 && yamlData.code < 300) {
-      return 'up';
-    } else if (yamlData.code >= 400) {
-      return 'down';
-    }
-  }
-  
-  // 根據響應時間判斷（如果沒有明確狀態）
-  if (yamlData.responseTime) {
-    const responseTime = parseInt(yamlData.responseTime);
-    if (responseTime > 10000) { // 超過 10 秒認為是慢
-      return 'slow';
-    } else if (responseTime > 0) {
-      return 'up';
-    }
-  }
-  
-  // 默認為正常
-  return 'up';
-}
-
-/**
  * 解析響應時間（從 YAML 數據）
+ * 獨立出來讓 determineServiceStatus 也能用
  */
 function parseResponseTime(responseTime) {
   try {
@@ -84,12 +53,59 @@ function parseResponseTime(responseTime) {
       return responseTime.toString();
     }
     if (typeof responseTime === 'string') {
-      return responseTime.replace(' ms', '').replace(' ms', '');
+      // 確保只移除一次 ' ms' 或其他單位
+      return responseTime.replace(' ms', '').replace(' ms', ''); 
     }
     return '0';
   } catch (error) {
     return '0';
   }
+}
+
+
+/**
+ * 判斷服務狀態（基於 YAML 數據）
+ * ❗ 根據你的要求，將高延遲（> 5000ms）也視為 'slow' (🟡)
+ */
+function determineServiceStatus(yamlData) {
+  // 設置高延遲門檻（毫秒）
+  const highLatencyThreshold = 5000; 
+  
+  // YAML 檔案直接包含 status 欄位
+  if (yamlData.status) {
+    return yamlData.status;
+  }
+  
+  // 優先根據 HTTP 狀態碼判斷異常 (4XX, 5XX)
+  if (yamlData.code) {
+    if (yamlData.code >= 400) {
+      return 'down'; 
+    }
+  }
+  
+  // 根據響應時間判斷 (將「延遲過高」也視為 'slow')
+  if (yamlData.responseTime) {
+    const responseTime = parseInt(parseResponseTime(yamlData.responseTime));
+    
+    // 超過門檻就標記為 slow
+    if (responseTime > highLatencyThreshold) { 
+      return 'slow';
+    } 
+    // 如果響應時間在正常範圍 (> 0)
+    if (responseTime > 0) {
+      return 'up';
+    }
+  }
+  
+  // 根據 HTTP 狀態碼判斷（如果響應時間缺失但狀態碼正常 2XX, 3XX）
+  if (yamlData.code) {
+    if (yamlData.code >= 200 && yamlData.code < 400) {
+      return 'up';
+    }
+  }
+
+  // 默認為正常
+  return 'up';
 }
 
 /**
@@ -100,7 +116,7 @@ function getStatusInfo(status) {
     case 'up':
       return { emoji: '🟢', color: 0x00ff00, text: '正常運行' };
     case 'slow':
-      return { emoji: '🟡', color: 0xffa500, text: '運行緩慢' };
+      return { emoji: '🟡', color: 0xffa500, text: '運行緩慢 / 延遲高' }; // 更改文字說明
     case 'down':
       return { emoji: '🔴', color: 0xff0000, text: '服務異常' };
     default:
@@ -132,6 +148,7 @@ async function checkAllSites() {
         continue;
       }
 
+      // 確保 responseTime 在 determineServiceStatus 前被處理
       const responseTime = parseResponseTime(yamlData.responseTime);
       const status = determineServiceStatus(yamlData);
       const statusInfo = getStatusInfo(status);
@@ -189,7 +206,7 @@ function createStatusEmbed(siteResults, messageType = 'routine') {
     overallColor = 0xff0000;
     title = '🚨 服務狀態異常';
   } else if (hasSlow) {
-    overallStatus = '🟡 服務運行緩慢';
+    overallStatus = '🟡 服務運行緩慢 / 延遲高';
     overallColor = 0xffa500;
     title = '⚠️ 服務狀態警告';
   } else {
@@ -227,7 +244,7 @@ function createStatusEmbed(siteResults, messageType = 'routine') {
   
   embed.addFields({
     name: '📊 統計摘要',
-    value: `🟢 正常: ${upCount} 個\n🟡 緩慢: ${slowCount} 個\n🔴 異常: ${downCount} 個`,
+    value: `🟢 正常: ${upCount} 個\n🟡 緩慢/高延遲: ${slowCount} 個\n🔴 異常: ${downCount} 個`,
     inline: false
   });
 
@@ -236,6 +253,7 @@ function createStatusEmbed(siteResults, messageType = 'routine') {
 
 /**
  * 主函數
+ * ❗ 處理 Tag 負責人員
  */
 async function main() {
   const botToken = process.env.bot_token;
@@ -244,9 +262,6 @@ async function main() {
   
   // 要 Tag 的用戶 ID
   const alertUserId = '<@1106816996655513620>'; 
-  
-  // ❗ 新增：高延遲門檻（毫秒）。例如：超過 5 秒就發 Tag
-  const highLatencyThreshold = 5000; 
   
   if (!botToken) {
     console.error('❌ 未找到 bot_token 環境變數');
@@ -264,9 +279,11 @@ async function main() {
   });
 
   try {
+    // 等待 Bot 上線
     await client.login(botToken);
     console.log('✅ Bot 已成功上線');
     
+    // 檢查所有站點狀態
     console.log('📊 開始檢查所有站點狀態...');
     const siteResults = await checkAllSites();
     
@@ -281,28 +298,20 @@ async function main() {
     // 檢查是否有異常 (🔴) 或緩慢 (🟡) 狀態
     const hasDown = siteResults.some(site => site.status === 'down');
     const hasSlow = siteResults.some(site => site.status === 'slow');
-    
-    // ❗ 檢查是否有服務延遲超過設定的「高延遲門檻」
-    const hasHighLatency = siteResults.some(site => {
-        const responseTimeMs = parseInt(site.responseTime);
-        return responseTimeMs > highLatencyThreshold;
-    });
 
     // 準備發送的內容
     let content = '';
     
-    // 滿足以下任一條件就 Tag：1. 異常 2. 緩慢 3. 高延遲
-    if (hasDown || hasSlow || hasHighLatency) {
+    // 滿足以下任一條件就 Tag：1. 異常 2. 緩慢/高延遲
+    if (hasDown || hasSlow) {
         let alertReason = '';
         if (hasDown) {
             alertReason = '服務 **🔴異常**';
         } else if (hasSlow) {
-            alertReason = '服務 **🟡運行緩慢**';
-        } else if (hasHighLatency) {
-            alertReason = '檢測到服務 **延遲過高**';
+            alertReason = '服務 **🟡運行緩慢** 或 **延遲過高**';
         }
         
-        content = `${alertUserId} 注意！${alertReason}，請查看詳細報告。`;
+        content = `${alertUserId} 注意！${alertReason}，請立即查看詳細報告。`;
     }
     
     // 發送狀態訊息到指定頻道
@@ -319,11 +328,13 @@ async function main() {
     });
     console.log(`✅ 狀態報告已發送到頻道 ${channelId}`);
     
-    // ... (這裡省略了原本針對 Down 狀態的額外 Embed 通知，因為 Tag 已經發出)
+    // 移除原本針對 Down 狀態的額外緊急告警，因為 Tag 已經包含在上面了
+
     
   } catch (error) {
     console.error('❌ Bot 執行過程中發生錯誤:', error.message);
   } finally {
+    // 確保 Bot 下線
     console.log('🔌 Bot 正在下線...');
     await client.destroy();
     console.log('✅ Bot 已成功下線');
@@ -342,5 +353,7 @@ module.exports = {
   main,
   checkAllSites,
   createStatusEmbed,
-  getStatusInfo
+  getStatusInfo,
+  determineServiceStatus,
+  parseResponseTime
 };
