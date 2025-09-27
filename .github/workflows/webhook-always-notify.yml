@@ -24,12 +24,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
       - name: Install Dependencies
         run: |
-          npm ci
+          # 安裝基本依賴
+          npm install --package-lock-only
+          # 安裝 discord.js 及其依賴
           npm install discord.js
+
+      - name: Verify Discord.js Setup
+        run: node scripts/verify-discord-setup.js
 
       - name: Run Webhook Notifications
         env:
