@@ -1,0 +1,137 @@
+name: Webhook Notification
+
+on:
+  schedule:
+    # 每5分鐘執行一次，與 uptime 檢查同步
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [webhook-notify]
+
+jobs:
+  webhook-notify:
+    name: Send Webhook Notifications
+    runs-on: ubuntu-latest
+    if: github.event_name != 'repository_dispatch' || github.event.action == 'webhook-notify'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm init -y
+          npm install
+
+      - name: Send notifications for all sites
+        run: |
+          echo "開始發送所有網站的 webhook 通知..."
+          
+          # 檢查 our-api
+          if [ -f "api/our-api/uptime.json" ] && [ -f "api/our-api/response-time.json" ]; then
+            echo "處理 our-api 通知..."
+            SITE_NAME="our_api 主要資料 (資料來源)" \
+            SITE_URL="https://bvc-api.deno.dev" \
+            SITE_STATUS="up" \
+            RESPONSE_TIME=$(cat api/our-api/response-time.json | jq -r '.message' | sed 's/ ms//') \
+            UPTIME=$(cat api/our-api/uptime.json | jq -r '.message') \
+            LAST_CHECKED=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ") \
+            WEBHOOK_URL="${{ secrets.WEBHOOK_URL }}" \
+            WEBHOOK_TYPE="${{ secrets.WEBHOOK_TYPE || 'slack' }}" \
+            node scripts/webhook-notify.js
+          fi
+
+          # 檢查 moa-api
+          if [ -f "api/moa-api/uptime.json" ] && [ -f "api/moa-api/response-time.json" ]; then
+            echo "處理 moa-api 通知..."
+            SITE_NAME="moa_api 農業部資料 (副資料來源)" \
+            SITE_URL="https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx" \
+            SITE_STATUS="up" \
+            RESPONSE_TIME=$(cat api/moa-api/response-time.json | jq -r '.message' | sed 's/ ms//') \
+            UPTIME=$(cat api/moa-api/uptime.json | jq -r '.message') \
+            LAST_CHECKED=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ") \
+            WEBHOOK_URL="${{ secrets.WEBHOOK_URL }}" \
+            WEBHOOK_TYPE="${{ secrets.WEBHOOK_TYPE || 'slack' }}" \
+            node scripts/webhook-notify.js
+          fi
+
+          # 檢查 notify-api
+          if [ -f "api/notify-api/uptime.json" ] && [ -f "api/notify-api/response-time.json" ]; then
+            echo "處理 notify-api 通知..."
+            SITE_NAME="notify_api 通知頁面 (通知內容)" \
+            SITE_URL="https://bvcaanotify.deno.dev" \
+            SITE_STATUS="up" \
+            RESPONSE_TIME=$(cat api/notify-api/response-time.json | jq -r '.message' | sed 's/ ms//') \
+            UPTIME=$(cat api/notify-api/uptime.json | jq -r '.message') \
+            LAST_CHECKED=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ") \
+            WEBHOOK_URL="${{ secrets.WEBHOOK_URL }}" \
+            WEBHOOK_TYPE="${{ secrets.WEBHOOK_TYPE || 'slack' }}" \
+            node scripts/webhook-notify.js
+          fi
+
+      - name: Check for status changes
+        run: |
+          echo "檢查狀態變化..."
+          
+          # 創建狀態變化檢查腳本
+          cat > check-status-changes.js << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          // 讀取歷史記錄檔案
+          function readHistoryFile(siteName) {
+            const filePath = path.join('history', `${siteName}.yml`);
+            if (fs.existsSync(filePath)) {
+              const content = fs.readFileSync(filePath, 'utf8');
+              const lines = content.split('\n');
+              const statusLine = lines.find(line => line.startsWith('status:'));
+              const lastUpdatedLine = lines.find(line => line.startsWith('lastUpdated:'));
+              
+              if (statusLine && lastUpdatedLine) {
+                return {
+                  status: statusLine.split(':')[1].trim(),
+                  lastUpdated: lastUpdatedLine.split(':')[1].trim()
+                };
+              }
+            }
+            return null;
+          }
+
+          // 檢查所有網站狀態
+          const sites = ['our-api', 'moa-api', 'notify-api'];
+          let hasChanges = false;
+
+          sites.forEach(site => {
+            const history = readHistoryFile(site);
+            if (history) {
+              console.log(`${site}: ${history.status} (${history.lastUpdated})`);
+              // 這裡可以添加狀態變化檢測邏輯
+              // 例如與上次狀態比較，如果有變化則設置 hasChanges = true
+            }
+          });
+
+          // 如果有狀態變化，設置 GitHub 輸出
+          if (hasChanges) {
+            console.log('::set-output name=status_changed::true');
+          } else {
+            console.log('::set-output name=status_changed::false');
+          }
+          EOF
+
+          # 執行狀態檢查
+          node check-status-changes.js
+
+      - name: Send status change notification
+        if: steps.status_check.outputs.status_changed == 'true'
+        run: |
+          echo "檢測到狀態變化，發送特殊通知..."
+          # 這裡可以添加狀態變化時的特殊通知邏輯

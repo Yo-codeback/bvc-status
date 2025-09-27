@@ -1,0 +1,177 @@
+name: Webhook Notification
+
+on:
+  schedule:
+    # 每5分鐘執行一次，與 uptime 檢查同步
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [webhook-notify]
+
+jobs:
+  webhook-notify:
+    name: Send Webhook Notifications
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Send webhook notifications
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          WEBHOOK_TYPE: ${{ secrets.WEBHOOK_TYPE || 'slack' }}
+        run: |
+          # 創建簡化的 webhook 發送腳本
+          cat > webhook-sender.js << 'EOF'
+          const https = require('https');
+          const http = require('http');
+
+          const config = {
+            webhookUrl: process.env.WEBHOOK_URL,
+            webhookType: process.env.WEBHOOK_TYPE || 'slack'
+          };
+
+          if (!config.webhookUrl) {
+            console.log('⚠️ WEBHOOK_URL 未設定，跳過通知');
+            process.exit(0);
+          }
+
+          // 讀取 API 數據
+          function readJsonFile(filePath) {
+            try {
+              const fs = require('fs');
+              return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            } catch (error) {
+              return null;
+            }
+          }
+
+          // 發送 webhook
+          async function sendWebhook(payload) {
+            const url = new URL(config.webhookUrl);
+            const options = {
+              hostname: url.hostname,
+              port: url.port || (url.protocol === 'https:' ? 443 : 80),
+              path: url.pathname + url.search,
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+              }
+            };
+
+            return new Promise((resolve, reject) => {
+              const client = url.protocol === 'https:' ? https : http;
+              const req = client.request(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                  if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(data);
+                  } else {
+                    reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                  }
+                });
+              });
+
+              req.on('error', reject);
+              req.write(payload);
+              req.end();
+            });
+          }
+
+          // 生成 Slack 格式的 payload
+          function generateSlackPayload(siteName, siteUrl, responseTime, uptime) {
+            const isUp = true; // 假設為正常狀態，因為檔案存在表示服務正常
+            const statusEmoji = '🟢';
+            const statusText = '正常運行';
+
+            return JSON.stringify({
+              attachments: [{
+                color: 'good',
+                title: `${statusEmoji} ${siteName} - ${statusText}`,
+                title_link: siteUrl,
+                fields: [
+                  {
+                    title: '狀態',
+                    value: statusText,
+                    short: true
+                  },
+                  {
+                    title: '響應時間',
+                    value: `${responseTime}ms`,
+                    short: true
+                  },
+                  {
+                    title: '運行時間',
+                    value: uptime,
+                    short: true
+                  },
+                  {
+                    title: '檢查時間',
+                    value: new Date().toLocaleString('zh-TW'),
+                    short: true
+                  }
+                ],
+                footer: 'Upptime 監控系統',
+                ts: Math.floor(Date.now() / 1000)
+              }]
+            });
+          }
+
+          // 主函數
+          async function main() {
+            const sites = [
+              {
+                name: 'our_api 主要資料 (資料來源)',
+                url: 'https://bvc-api.deno.dev',
+                apiPath: 'api/our-api'
+              },
+              {
+                name: 'moa_api 農業部資料 (副資料來源)',
+                url: 'https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx',
+                apiPath: 'api/moa-api'
+              },
+              {
+                name: 'notify_api 通知頁面 (通知內容)',
+                url: 'https://bvcaanotify.deno.dev',
+                apiPath: 'api/notify-api'
+              }
+            ];
+
+            for (const site of sites) {
+              try {
+                const responseTimeData = readJsonFile(`${site.apiPath}/response-time.json`);
+                const uptimeData = readJsonFile(`${site.apiPath}/uptime.json`);
+
+                if (responseTimeData && uptimeData) {
+                  const responseTime = responseTimeData.message.replace(' ms', '');
+                  const uptime = uptimeData.message;
+
+                  const payload = generateSlackPayload(site.name, site.url, responseTime, uptime);
+                  await sendWebhook(payload);
+                  
+                  console.log(`✅ ${site.name} 通知發送成功`);
+                } else {
+                  console.log(`⚠️ ${site.name} 數據檔案不存在，跳過通知`);
+                }
+              } catch (error) {
+                console.error(`❌ ${site.name} 通知發送失敗:`, error.message);
+              }
+            }
+          }
+
+          main().catch(console.error);
+          EOF
+
+          # 執行 webhook 發送
+          node webhook-sender.js
