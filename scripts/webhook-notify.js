@@ -342,9 +342,15 @@ function generateDiscordPayload(statusChange) {
       url: config.siteUrl,
       description: notificationMessage,
       color: color,
+      thumbnail: {
+        url: isUp 
+          ? 'https://raw.githubusercontent.com/upptime/upptime.js.org/master/static/img/icon.svg' // 正常狀態圖示
+          : 'https://raw.githubusercontent.com/upptime/upptime.js.org/master/static/img/icon.svg' // 異常狀態圖示
+      },
       fields: fields,
       footer: {
-        text: footerText
+        text: footerText,
+        icon_url: 'https://raw.githubusercontent.com/upptime/upptime.js.org/master/static/img/icon.svg'
       },
       timestamp: new Date(config.lastChecked).toISOString()
     }]
