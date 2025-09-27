@@ -45,7 +45,6 @@ function readYamlFile(filePath) {
 
 /**
  * 解析響應時間（從 YAML 數據）
- * 獨立出來讓 determineServiceStatus 也能用
  */
 function parseResponseTime(responseTime) {
   try {
@@ -65,11 +64,11 @@ function parseResponseTime(responseTime) {
 
 /**
  * 判斷服務狀態（基於 YAML 數據）
- * ❗ 根據你的要求，將高延遲（> 5000ms）也視為 'slow' (🟡)
+ * ❗ 高延遲門檻：10000ms (10 秒)
  */
 function determineServiceStatus(yamlData) {
-  // 設置高延遲門檻（毫秒）
-  const highLatencyThreshold = 5000; 
+  // 設置高延遲門檻（毫秒），超過此值即視為 'slow'
+  const highLatencyThreshold = 10000; 
   
   // YAML 檔案直接包含 status 欄位
   if (yamlData.status) {
@@ -87,7 +86,7 @@ function determineServiceStatus(yamlData) {
   if (yamlData.responseTime) {
     const responseTime = parseInt(parseResponseTime(yamlData.responseTime));
     
-    // 超過門檻就標記為 slow
+    // 超過 10000ms 門檻就標記為 slow
     if (responseTime > highLatencyThreshold) { 
       return 'slow';
     } 
@@ -148,7 +147,6 @@ async function checkAllSites() {
         continue;
       }
 
-      // 確保 responseTime 在 determineServiceStatus 前被處理
       const responseTime = parseResponseTime(yamlData.responseTime);
       const status = determineServiceStatus(yamlData);
       const statusInfo = getStatusInfo(status);
@@ -302,7 +300,7 @@ async function main() {
     // 準備發送的內容
     let content = '';
     
-    // 滿足以下任一條件就 Tag：1. 異常 2. 緩慢/高延遲
+    // 只要有紅燈或黃燈就 Tag
     if (hasDown || hasSlow) {
         let alertReason = '';
         if (hasDown) {
@@ -327,9 +325,6 @@ async function main() {
         embeds: [statusEmbed] 
     });
     console.log(`✅ 狀態報告已發送到頻道 ${channelId}`);
-    
-    // 移除原本針對 Down 狀態的額外緊急告警，因為 Tag 已經包含在上面了
-
     
   } catch (error) {
     console.error('❌ Bot 執行過程中發生錯誤:', error.message);
