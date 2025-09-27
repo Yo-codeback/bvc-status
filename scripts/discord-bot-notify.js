@@ -52,7 +52,6 @@ function parseResponseTime(responseTime) {
       return responseTime.toString();
     }
     if (typeof responseTime === 'string') {
-      // 確保只移除一次 ' ms' 或其他單位
       return responseTime.replace(' ms', '').replace(' ms', ''); 
     }
     return '0';
@@ -64,25 +63,20 @@ function parseResponseTime(responseTime) {
 
 /**
  * 判斷服務狀態（基於 YAML 數據）
- * ❗ 高延遲門檻：10000ms (10 秒)
+ * ❗ 修正：將 HTTP 狀態碼和響應時間作為主要判斷依據
  */
 function determineServiceStatus(yamlData) {
   // 設置高延遲門檻（毫秒），超過此值即視為 'slow'
   const highLatencyThreshold = 10000; 
   
-  // YAML 檔案直接包含 status 欄位
-  if (yamlData.status) {
-    return yamlData.status;
+  // 🚨 移除了 if (yamlData.status) 的判斷，確保讀取 code 和 responseTime 的即時狀態
+
+  // 1. 優先判斷 HTTP 狀態碼：4XX, 5XX (服務異常)
+  if (yamlData.code && yamlData.code >= 400) {
+    return 'down'; 
   }
   
-  // 優先根據 HTTP 狀態碼判斷異常 (4XX, 5XX)
-  if (yamlData.code) {
-    if (yamlData.code >= 400) {
-      return 'down'; 
-    }
-  }
-  
-  // 根據響應時間判斷 (將「延遲過高」也視為 'slow')
+  // 2. 判斷響應時間：超過 10000ms (延遲過高)
   if (yamlData.responseTime) {
     const responseTime = parseInt(parseResponseTime(yamlData.responseTime));
     
@@ -90,20 +84,14 @@ function determineServiceStatus(yamlData) {
     if (responseTime > highLatencyThreshold) { 
       return 'slow';
     } 
-    // 如果響應時間在正常範圍 (> 0)
-    if (responseTime > 0) {
-      return 'up';
-    }
   }
   
-  // 根據 HTTP 狀態碼判斷（如果響應時間缺失但狀態碼正常 2XX, 3XX）
-  if (yamlData.code) {
-    if (yamlData.code >= 200 && yamlData.code < 400) {
-      return 'up';
-    }
+  // 3. 最後判斷：只要不是 down 或 slow，且 code 正常或 responseTime 存在，就視為 up
+  if ((yamlData.code && yamlData.code >= 200 && yamlData.code < 400) || (yamlData.responseTime && parseInt(parseResponseTime(yamlData.responseTime)) > 0)) {
+    return 'up';
   }
 
-  // 默認為正常
+  // 默認為正常 (Fallback)
   return 'up';
 }
 
@@ -115,7 +103,7 @@ function getStatusInfo(status) {
     case 'up':
       return { emoji: '🟢', color: 0x00ff00, text: '正常運行' };
     case 'slow':
-      return { emoji: '🟡', color: 0xffa500, text: '運行緩慢 / 延遲高' }; // 更改文字說明
+      return { emoji: '🟡', color: 0xffa500, text: '運行緩慢 / 延遲高' }; 
     case 'down':
       return { emoji: '🔴', color: 0xff0000, text: '服務異常' };
     default:
