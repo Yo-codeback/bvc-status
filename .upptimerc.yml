@@ -37,11 +37,11 @@ status-website:
 # Webhook 通知配置
 notifications:
   webhook:
-    # 請替換為您的實際 webhook URL
-    url:https://discord.com/api/webhooks/1421170023900385432/Z6c2D70EWaZEbXGFdmD8zFxkTmaSABTpaaZNw6qEAQr9HVZGDjaPwRvedL8TRXaUoqDy
+    # 使用 GitHub Secrets 中的 webhook URL（更安全）
+    url: ${{ secrets.NOTIFICATION_DISCORD_WEBHOOK_URL }}
     # 支援的類型: slack, discord, custom
     type: discord
     # 是否在每次檢查後都發送通知（包括正常狀態）
-    notify-on-check: true
+    notify-on-check: false
     # 是否在狀態變化時發送通知
     notify-on-change: true
