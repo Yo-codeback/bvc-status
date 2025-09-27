@@ -245,6 +245,9 @@ async function main() {
   // 要 Tag 的用戶 ID
   const alertUserId = '<@1106816996655513620>'; 
   
+  // ❗ 新增：高延遲門檻（毫秒）。例如：超過 5 秒就發 Tag
+  const highLatencyThreshold = 5000; 
+  
   if (!botToken) {
     console.error('❌ 未找到 bot_token 環境變數');
     process.exit(1);
@@ -261,11 +264,9 @@ async function main() {
   });
 
   try {
-    // 等待 Bot 上線
     await client.login(botToken);
     console.log('✅ Bot 已成功上線');
     
-    // 檢查所有站點狀態
     console.log('📊 開始檢查所有站點狀態...');
     const siteResults = await checkAllSites();
     
@@ -277,15 +278,31 @@ async function main() {
     // 創建狀態嵌入
     const statusEmbed = createStatusEmbed(siteResults, messageType);
     
-    // 檢查是否有異常或緩慢狀態
+    // 檢查是否有異常 (🔴) 或緩慢 (🟡) 狀態
     const hasDown = siteResults.some(site => site.status === 'down');
     const hasSlow = siteResults.some(site => site.status === 'slow');
     
+    // ❗ 檢查是否有服務延遲超過設定的「高延遲門檻」
+    const hasHighLatency = siteResults.some(site => {
+        const responseTimeMs = parseInt(site.responseTime);
+        return responseTimeMs > highLatencyThreshold;
+    });
+
     // 準備發送的內容
     let content = '';
-    if (hasDown || hasSlow) {
-        // 如果有紅燈或黃燈，加入 Tag
-        content = `${alertUserId} 注意！檢測到服務 **🔴異常** 或 **🟡緩慢**，請查看詳細報告。`;
+    
+    // 滿足以下任一條件就 Tag：1. 異常 2. 緩慢 3. 高延遲
+    if (hasDown || hasSlow || hasHighLatency) {
+        let alertReason = '';
+        if (hasDown) {
+            alertReason = '服務 **🔴異常**';
+        } else if (hasSlow) {
+            alertReason = '服務 **🟡運行緩慢**';
+        } else if (hasHighLatency) {
+            alertReason = '檢測到服務 **延遲過高**';
+        }
+        
+        content = `${alertUserId} 注意！${alertReason}，請查看詳細報告。`;
     }
     
     // 發送狀態訊息到指定頻道
@@ -297,38 +314,16 @@ async function main() {
     
     // 使用 content 欄位發送 Tag 和文字，並附帶 Embed
     await channel.send({ 
-        content: content, // 包含 Tag 的文字
+        content: content, 
         embeds: [statusEmbed] 
     });
     console.log(`✅ 狀態報告已發送到頻道 ${channelId}`);
     
-    // 【可選：移除此段】原本針對 Down 狀態的額外緊急告警，現在 Tag 已經包含在上面了
-    // if (hasDown) {
-    //   // 如果有服務異常，發送緊急通知
-    //   const alertEmbed = new EmbedBuilder()
-    //     .setTitle('🚨 緊急告警')
-    //     .setDescription('檢測到服務異常，請立即檢查！')
-    //     .setColor(0xff0000)
-    //     .setTimestamp();
-      
-    //   const downSites = siteResults.filter(site => site.status === 'down');
-    //   downSites.forEach(site => {
-    //     alertEmbed.addFields({
-    //       name: `🔴 ${site.name}`,
-    //       value: `狀態: ${site.statusInfo.text}\n響應時間: ${site.responseTime}ms`,
-    //       inline: true
-    //     });
-    //   });
-      
-    //   await channel.send({ embeds: [alertEmbed] });
-    //   console.log('🚨 緊急告警已發送');
-    // }
-    // 【可選：移除此段 結束】
+    // ... (這裡省略了原本針對 Down 狀態的額外 Embed 通知，因為 Tag 已經發出)
     
   } catch (error) {
     console.error('❌ Bot 執行過程中發生錯誤:', error.message);
   } finally {
-    // 確保 Bot 下線
     console.log('🔌 Bot 正在下線...');
     await client.destroy();
     console.log('✅ Bot 已成功下線');
