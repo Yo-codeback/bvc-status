@@ -5,7 +5,7 @@
  * 用於測試 Discord.js 是否可以正常載入
  */
 
-console.log('🧪 驗證 Discord.js 設定...');
+console.log('🧪 驗證 Discord.js 和 YAML 設定...');
 
 try {
   // 嘗試載入 discord.js
@@ -16,6 +16,11 @@ try {
   console.log('  - Client:', typeof Client);
   console.log('  - GatewayIntentBits:', typeof GatewayIntentBits);
   console.log('  - EmbedBuilder:', typeof EmbedBuilder);
+  
+  // 嘗試載入 js-yaml
+  const yaml = require('js-yaml');
+  console.log('✅ js-yaml 載入成功');
+  console.log('📦 YAML 載入器:', typeof yaml.load);
   
   // 測試創建 Client 實例
   const client = new Client({
