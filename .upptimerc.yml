@@ -42,6 +42,6 @@ notifications:
     # 支援的類型: slack, discord, custom
     type: discord
     # 是否在每次檢查後都發送通知（包括正常狀態）
-    notify-on-check: false
+    notify-on-check: true
     # 是否在狀態變化時發送通知
     notify-on-change: true

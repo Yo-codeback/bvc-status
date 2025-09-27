@@ -3,7 +3,7 @@
 /**
  * Upptime Webhook 通知腳本
  * 用於檢測狀態變化並發送 webhook 通知
- * 只有在狀態變化時才會發送通知，避免重複通知
+ * 支援每次檢查都發送通知，或只在狀態變化時發送
  */
 
 const fs = require('fs');
@@ -22,7 +22,9 @@ const config = {
   lastChecked: process.env.LAST_CHECKED || new Date().toISOString(),
   uptime: process.env.UPTIME || '0%',
   // 新增：狀態歷史檔案路徑
-  statusHistoryFile: process.env.STATUS_HISTORY_FILE || 'status-history.json'
+  statusHistoryFile: process.env.STATUS_HISTORY_FILE || 'status-history.json',
+  // 新增：是否每次檢查都發送通知
+  notifyOnCheck: process.env.NOTIFY_ON_CHECK === 'true' || false
 };
 
 /**
@@ -292,8 +294,12 @@ function generateDiscordPayload(statusChange) {
       ? `✅ 狀態變化 - ${config.siteName} 現在正常運行`
       : `⚠️ 狀態變化 - ${config.siteName} 服務異常`;
     footerText = 'Upptime 監控系統 - 狀態變化通知';
+  } else if (statusChange.changed === false && statusChange.isRecovery === false && statusChange.isOutage === false) {
+    // 狀態沒有變化，但需要發送例行檢查通知
+    notificationMessage = `📊 例行檢查完成 - ${config.siteName} 運行正常`;
+    footerText = 'Upptime 監控系統 - 例行檢查通知';
   } else {
-    // 如果沒有變化，不應該發送通知
+    // 如果沒有變化且未啟用每次檢查通知，不應該發送通知
     return null;
   }
 
@@ -421,10 +427,16 @@ async function main() {
       isOutage: statusChange.isOutage
     });
 
-    // 如果沒有狀態變化，跳過通知
-    if (!statusChange.changed) {
-      console.log('📊 狀態無變化，跳過通知');
+    // 決定是否發送通知
+    const shouldNotify = statusChange.changed || config.notifyOnCheck;
+    
+    if (!shouldNotify) {
+      console.log('📊 狀態無變化且未啟用每次檢查通知，跳過通知');
       return;
+    }
+    
+    if (!statusChange.changed && config.notifyOnCheck) {
+      console.log('📊 狀態無變化，但啟用了每次檢查通知');
     }
 
     // 根據狀態變化類型選擇通知類型

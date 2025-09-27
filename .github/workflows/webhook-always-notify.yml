@@ -33,6 +33,7 @@ jobs:
         env:
           WEBHOOK_URL: ${{ secrets.NOTIFICATION_DISCORD_WEBHOOK_URL }}
           WEBHOOK_TYPE: ${{ secrets.WEBHOOK_TYPE || 'discord' }}
+          NOTIFY_ON_CHECK: 'true'
         run: |
           echo "🚀 開始智慧狀態變化監控..."
           
