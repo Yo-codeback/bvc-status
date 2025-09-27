@@ -6,34 +6,36 @@
  */
 
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const yaml = require('js-yaml');
+const fs = require('fs');
 
 // 監控的 API 端點配置
 const monitoredSites = [
   {
     name: 'our_api 主要資料 (資料來源)',
     url: 'https://bvc-api.deno.dev',
-    apiPath: 'api/our-api'
+    historyFile: 'history/our-api.yml'
   },
   {
     name: 'moa_api 農業部資料 (副資料來源)',
     url: 'https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx',
-    apiPath: 'api/moa-api'
+    historyFile: 'history/moa-api.yml'
   },
   {
     name: 'notify_api 通知頁面 (通知內容)',
     url: 'https://bvcaanotify.deno.dev',
-    apiPath: 'api/notify-api'
+    historyFile: 'history/notify-api.yml'
   }
 ];
 
 /**
- * 讀取 JSON 檔案
+ * 讀取 YAML 檔案
  */
-function readJsonFile(filePath) {
-  const fs = require('fs');
+function readYamlFile(filePath) {
   try {
     if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const fileContents = fs.readFileSync(filePath, 'utf8');
+      return yaml.load(fileContents);
     }
   } catch (error) {
     console.warn(`無法讀取檔案 ${filePath}:`, error.message);
@@ -42,43 +44,31 @@ function readJsonFile(filePath) {
 }
 
 /**
- * 判斷服務狀態
+ * 判斷服務狀態（基於 YAML 數據）
  */
-function determineServiceStatus(responseTimeData, uptimeData) {
-  // 優先使用明確的 status 欄位
-  if (responseTimeData.status) {
-    return responseTimeData.status;
-  }
-  if (uptimeData.status) {
-    return uptimeData.status;
+function determineServiceStatus(yamlData) {
+  // YAML 檔案直接包含 status 欄位
+  if (yamlData.status) {
+    return yamlData.status;
   }
   
-  // 根據顏色和運行時間綜合判斷狀態
-  const responseColor = responseTimeData.color;
-  const uptimeColor = uptimeData.color;
-  const uptimeValue = parseFloat(uptimeData.message.replace('%', ''));
-  
-  // 如果運行時間顯示紅色，則為異常
-  if (uptimeColor === 'red') {
-    return 'down';
-  }
-  
-  // 如果運行時間很高（>95%），即使響應時間慢也認為是正常的（只是慢）
-  if (uptimeValue > 95) {
-    if (responseColor === 'red') {
-      return 'slow'; // 慢但可用
+  // 根據 HTTP 狀態碼判斷
+  if (yamlData.code) {
+    if (yamlData.code >= 200 && yamlData.code < 300) {
+      return 'up';
+    } else if (yamlData.code >= 400) {
+      return 'down';
     }
-    return 'up';
   }
   
-  // 如果響應時間顯示紅色且運行時間不高，則為異常
-  if (responseColor === 'red') {
-    return 'down';
-  }
-  
-  // 如果響應時間顯示橙色或黃色，可能是慢但可用
-  if (responseColor === 'orange' || responseColor === 'yellow') {
-    return 'slow';
+  // 根據響應時間判斷（如果沒有明確狀態）
+  if (yamlData.responseTime) {
+    const responseTime = parseInt(yamlData.responseTime);
+    if (responseTime > 10000) { // 超過 10 秒認為是慢
+      return 'slow';
+    } else if (responseTime > 0) {
+      return 'up';
+    }
   }
   
   // 默認為正常
@@ -86,11 +76,17 @@ function determineServiceStatus(responseTimeData, uptimeData) {
 }
 
 /**
- * 解析響應時間
+ * 解析響應時間（從 YAML 數據）
  */
-function parseResponseTime(responseTimeMessage) {
+function parseResponseTime(responseTime) {
   try {
-    return responseTimeMessage.replace(' ms', '').replace(' ms', '');
+    if (typeof responseTime === 'number') {
+      return responseTime.toString();
+    }
+    if (typeof responseTime === 'string') {
+      return responseTime.replace(' ms', '').replace(' ms', '');
+    }
+    return '0';
   } catch (error) {
     return '0';
   }
@@ -122,26 +118,38 @@ async function checkAllSites() {
     try {
       console.log(`🔍 檢查 ${site.name}...`);
       
-      const responseTimeFile = `${site.apiPath}/response-time.json`;
-      const uptimeFile = `${site.apiPath}/uptime.json`;
+      const historyFile = site.historyFile;
       
-      if (!require('fs').existsSync(responseTimeFile) || !require('fs').existsSync(uptimeFile)) {
-        console.log(`⚠️ ${site.name} 數據檔案不存在，跳過檢查`);
+      if (!fs.existsSync(historyFile)) {
+        console.log(`⚠️ ${site.name} 歷史檔案不存在，跳過檢查`);
         continue;
       }
 
-      const responseTimeData = readJsonFile(responseTimeFile);
-      const uptimeData = readJsonFile(uptimeFile);
+      const yamlData = readYamlFile(historyFile);
 
-      if (!responseTimeData || !uptimeData) {
-        console.log(`⚠️ ${site.name} 無法讀取數據，跳過檢查`);
+      if (!yamlData) {
+        console.log(`⚠️ ${site.name} 無法讀取 YAML 數據，跳過檢查`);
         continue;
       }
 
-      const responseTime = parseResponseTime(responseTimeData.message);
-      const uptime = uptimeData.message;
-      const status = determineServiceStatus(responseTimeData, uptimeData);
+      const responseTime = parseResponseTime(yamlData.responseTime);
+      const status = determineServiceStatus(yamlData);
       const statusInfo = getStatusInfo(status);
+      const lastUpdated = yamlData.lastUpdated || new Date().toISOString();
+      
+      // 計算運行時間（從 startTime 到 lastUpdated）
+      let uptime = '未知';
+      if (yamlData.startTime && yamlData.lastUpdated) {
+        try {
+          const startTime = new Date(yamlData.startTime);
+          const endTime = new Date(yamlData.lastUpdated);
+          const totalTime = endTime - startTime;
+          const days = Math.floor(totalTime / (1000 * 60 * 60 * 24));
+          uptime = `${days} 天`;
+        } catch (error) {
+          console.warn(`無法計算運行時間: ${error.message}`);
+        }
+      }
       
       results.push({
         name: site.name,
@@ -150,10 +158,11 @@ async function checkAllSites() {
         statusInfo,
         responseTime,
         uptime,
-        lastChecked: new Date().toISOString()
+        lastChecked: lastUpdated,
+        httpCode: yamlData.code
       });
       
-      console.log(`📊 ${site.name} 狀態: ${status}, 響應時間: ${responseTime}ms, 運行時間: ${uptime}`);
+      console.log(`📊 ${site.name} 狀態: ${status}, 響應時間: ${responseTime}ms, 運行時間: ${uptime}, HTTP狀態: ${yamlData.code}`);
       
     } catch (error) {
       console.error(`❌ 檢查 ${site.name} 時發生錯誤:`, error.message);
@@ -202,7 +211,7 @@ function createStatusEmbed(siteResults, messageType = 'routine') {
   // 添加每個服務的詳細資訊
   siteResults.forEach(site => {
     const statusInfo = site.statusInfo;
-    const fieldValue = `**狀態**: ${statusInfo.emoji} ${statusInfo.text}\n**響應時間**: ${site.responseTime}ms\n**運行時間**: ${site.uptime}`;
+    const fieldValue = `**狀態**: ${statusInfo.emoji} ${statusInfo.text}\n**響應時間**: ${site.responseTime}ms\n**運行時間**: ${site.uptime}\n**HTTP狀態**: ${site.httpCode}`;
     
     embed.addFields({
       name: site.name,

@@ -29,8 +29,8 @@ jobs:
         run: |
           # 安裝基本依賴
           npm install --package-lock-only
-          # 安裝 discord.js 及其依賴
-          npm install discord.js
+          # 安裝 discord.js 和 js-yaml
+          npm install discord.js js-yaml
 
       - name: Verify Discord.js Setup
         run: node scripts/verify-discord-setup.js
