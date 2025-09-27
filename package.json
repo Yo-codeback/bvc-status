@@ -21,7 +21,9 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  },
   "devDependencies": {},
   "repository": {
     "type": "git",

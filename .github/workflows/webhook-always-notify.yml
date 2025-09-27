@@ -1,4 +1,4 @@
-name: Smart Status Change Notifications
+name: Smart Status Change Notifications (Webhook + Bot)
 
 on:
   schedule:
@@ -27,21 +27,37 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm install discord.js
 
-      - name: Run Smart Status Monitoring
+      - name: Run Webhook Notifications
         env:
           WEBHOOK_URL: ${{ secrets.NOTIFICATION_DISCORD_SMART }}
           WEBHOOK_TYPE: ${{ secrets.WEBHOOK_TYPE || 'discord' }}
           NOTIFY_ON_CHECK: 'true'
         run: |
-          echo "🚀 開始智慧狀態變化監控..."
+          echo "🚀 開始智慧狀態變化監控 (Webhook)..."
           
-          if [ -z "$WEBHOOK_URL" ]; then
-            echo "⚠️ WEBHOOK_URL 未設定，跳過通知"
+          if [ -n "$WEBHOOK_URL" ]; then
+            echo "📤 發送 Webhook 通知..."
+            node scripts/smart-monitor.js
+          else
+            echo "⚠️ WEBHOOK_URL 未設定，跳過 Webhook 通知"
+          fi
+
+      - name: Run Discord Bot Notification
+        env:
+          bot_token: ${{ secrets.bot_token }}
+          MESSAGE_TYPE: 'routine'
+        run: |
+          echo "🤖 啟動 Discord Bot 進行詳細狀態報告..."
+          
+          if [ -z "$bot_token" ]; then
+            echo "⚠️ bot_token 未設定，跳過 Bot 通知"
             exit 0
           fi
 
-          # 使用新的智慧監控腳本
-          node scripts/smart-monitor.js
+          echo "📊 Bot 將在頻道 1421404291444510783 發送詳細狀態報告"
+          node scripts/discord-bot-notify.js
 
