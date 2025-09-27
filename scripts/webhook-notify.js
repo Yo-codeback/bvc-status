@@ -11,26 +11,31 @@ const path = require('path');
 const https = require('https');
 const http = require('http');
 
-// 配置
-const config = {
-  webhookUrl: process.env.WEBHOOK_URL || 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK',
-  webhookType: process.env.WEBHOOK_TYPE || 'slack', // slack, discord, custom
-  siteName: process.env.SITE_NAME || 'Unknown Site',
-  siteUrl: process.env.SITE_URL || '',
-  status: process.env.SITE_STATUS || 'up', // up, down
-  responseTime: process.env.RESPONSE_TIME || '0',
-  lastChecked: process.env.LAST_CHECKED || new Date().toISOString(),
-  uptime: process.env.UPTIME || '0%',
-  // 新增：狀態歷史檔案路徑
-  statusHistoryFile: process.env.STATUS_HISTORY_FILE || 'status-history.json',
-  // 新增：是否每次檢查都發送通知
-  notifyOnCheck: process.env.NOTIFY_ON_CHECK === 'true' || false
-};
+/**
+ * 獲取配置（每次調用時動態讀取環境變數）
+ */
+function getConfig() {
+  return {
+    webhookUrl: process.env.WEBHOOK_URL || 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK',
+    webhookType: process.env.WEBHOOK_TYPE || 'slack', // slack, discord, custom
+    siteName: process.env.SITE_NAME || 'Unknown Site',
+    siteUrl: process.env.SITE_URL || '',
+    status: process.env.SITE_STATUS || 'up', // up, down
+    responseTime: process.env.RESPONSE_TIME || '0',
+    lastChecked: process.env.LAST_CHECKED || new Date().toISOString(),
+    uptime: process.env.UPTIME || '0%',
+    // 新增：狀態歷史檔案路徑
+    statusHistoryFile: process.env.STATUS_HISTORY_FILE || 'status-history.json',
+    // 新增：是否每次檢查都發送通知
+    notifyOnCheck: process.env.NOTIFY_ON_CHECK === 'true' || false
+  };
+}
 
 /**
  * 讀取狀態歷史檔案
  */
 function readStatusHistory() {
+  const config = getConfig();
   try {
     if (fs.existsSync(config.statusHistoryFile)) {
       const data = fs.readFileSync(config.statusHistoryFile, 'utf8');
@@ -46,6 +51,7 @@ function readStatusHistory() {
  * 保存狀態歷史檔案
  */
 function saveStatusHistory(history) {
+  const config = getConfig();
   try {
     fs.writeFileSync(config.statusHistoryFile, JSON.stringify(history, null, 2));
   } catch (error) {
@@ -57,6 +63,7 @@ function saveStatusHistory(history) {
  * 檢測狀態是否發生變化
  */
 function detectStatusChange(currentStatus) {
+  const config = getConfig();
   const history = readStatusHistory();
   const siteKey = config.siteName;
   
@@ -91,6 +98,7 @@ function detectStatusChange(currentStatus) {
  * 發送 Slack webhook
  */
 async function sendSlackWebhook(payload) {
+  const config = getConfig();
   const url = new URL(config.webhookUrl);
   const options = {
     hostname: url.hostname,
@@ -127,6 +135,7 @@ async function sendSlackWebhook(payload) {
  * 發送 Discord webhook
  */
 async function sendDiscordWebhook(payload) {
+  const config = getConfig();
   const url = new URL(config.webhookUrl);
   const options = {
     hostname: url.hostname,
@@ -163,6 +172,7 @@ async function sendDiscordWebhook(payload) {
  * 發送自定義 webhook
  */
 async function sendCustomWebhook(payload) {
+  const config = getConfig();
   const url = new URL(config.webhookUrl);
   const options = {
     hostname: url.hostname,
@@ -199,6 +209,7 @@ async function sendCustomWebhook(payload) {
  * 生成 Slack 格式的 payload
  */
 function generateSlackPayload(statusChange) {
+  const config = getConfig();
   const isUp = config.status === 'up';
   const statusEmoji = isUp ? '🟢' : '🔴';
   const statusText = isUp ? '正常運行' : '服務異常';
@@ -274,6 +285,7 @@ function generateSlackPayload(statusChange) {
  * 生成 Discord 格式的 payload
  */
 function generateDiscordPayload(statusChange) {
+  const config = getConfig();
   const isUp = config.status === 'up';
   const statusEmoji = isUp ? '🟢' : '🔴';
   const statusText = isUp ? '正常運行' : '服務異常';
@@ -361,6 +373,7 @@ function generateDiscordPayload(statusChange) {
  * 生成自定義格式的 payload
  */
 function generateCustomPayload(statusChange) {
+  const config = getConfig();
   const isUp = config.status === 'up';
   
   // 根據狀態變化類型生成不同的訊息
@@ -417,6 +430,7 @@ function generateCustomPayload(statusChange) {
  */
 async function main() {
   try {
+    const config = getConfig();
     console.log(`開始檢查狀態變化...`);
     console.log(`網站: ${config.siteName}`);
     console.log(`當前狀態: ${config.status}`);
