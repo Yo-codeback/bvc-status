@@ -31,7 +31,7 @@ jobs:
 
       - name: Smart Status Change Notifications
         env:
-          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          WEBHOOK_URL: ${{ secrets.NOTIFICATION_DISCORD_WEBHOOK_URL }}
           WEBHOOK_TYPE: ${{ secrets.WEBHOOK_TYPE || 'discord' }}
         run: |
           echo "🚀 開始智慧狀態變化監控..."
