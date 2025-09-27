@@ -1,0 +1,16 @@
+{
+  "test_site": {
+    "status": "up",
+    "lastChecked": "2025-09-27T06:11:38.038Z",
+    "responseTime": "150",
+    "uptime": "99.9%",
+    "timestamp": 1758953498038
+  },
+  "Unknown Site": {
+    "status": "up",
+    "lastChecked": "2025-09-27T06:11:38.034Z",
+    "responseTime": "0",
+    "uptime": "0%",
+    "timestamp": 1758953498043
+  }
+}

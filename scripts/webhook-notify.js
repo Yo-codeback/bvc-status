@@ -2,7 +2,8 @@
 
 /**
  * Upptime Webhook 通知腳本
- * 用於在每次監測後發送 webhook 通知
+ * 用於檢測狀態變化並發送 webhook 通知
+ * 只有在狀態變化時才會發送通知，避免重複通知
  */
 
 const fs = require('fs');
@@ -19,8 +20,70 @@ const config = {
   status: process.env.SITE_STATUS || 'up', // up, down
   responseTime: process.env.RESPONSE_TIME || '0',
   lastChecked: process.env.LAST_CHECKED || new Date().toISOString(),
-  uptime: process.env.UPTIME || '0%'
+  uptime: process.env.UPTIME || '0%',
+  // 新增：狀態歷史檔案路徑
+  statusHistoryFile: process.env.STATUS_HISTORY_FILE || 'status-history.json'
 };
+
+/**
+ * 讀取狀態歷史檔案
+ */
+function readStatusHistory() {
+  try {
+    if (fs.existsSync(config.statusHistoryFile)) {
+      const data = fs.readFileSync(config.statusHistoryFile, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.warn('無法讀取狀態歷史檔案:', error.message);
+  }
+  return {};
+}
+
+/**
+ * 保存狀態歷史檔案
+ */
+function saveStatusHistory(history) {
+  try {
+    fs.writeFileSync(config.statusHistoryFile, JSON.stringify(history, null, 2));
+  } catch (error) {
+    console.error('無法保存狀態歷史檔案:', error.message);
+  }
+}
+
+/**
+ * 檢測狀態是否發生變化
+ */
+function detectStatusChange(currentStatus) {
+  const history = readStatusHistory();
+  const siteKey = config.siteName;
+  
+  // 獲取上次的狀態
+  const lastStatus = history[siteKey]?.status;
+  const lastChecked = history[siteKey]?.lastChecked;
+  
+  // 如果是第一次檢查或狀態發生變化，則需要發送通知
+  const statusChanged = lastStatus !== currentStatus;
+  
+  // 更新歷史記錄
+  history[siteKey] = {
+    status: currentStatus,
+    lastChecked: config.lastChecked,
+    responseTime: config.responseTime,
+    uptime: config.uptime,
+    timestamp: Date.now()
+  };
+  
+  saveStatusHistory(history);
+  
+  return {
+    changed: statusChanged,
+    previousStatus: lastStatus,
+    currentStatus: currentStatus,
+    isRecovery: lastStatus === 'down' && currentStatus === 'up',
+    isOutage: lastStatus === 'up' && currentStatus === 'down'
+  };
+}
 
 /**
  * 發送 Slack webhook
@@ -133,40 +196,73 @@ async function sendCustomWebhook(payload) {
 /**
  * 生成 Slack 格式的 payload
  */
-function generateSlackPayload() {
+function generateSlackPayload(statusChange) {
   const isUp = config.status === 'up';
   const statusEmoji = isUp ? '🟢' : '🔴';
   const statusText = isUp ? '正常運行' : '服務異常';
   const color = isUp ? 'good' : 'danger';
+  
+  // 根據狀態變化類型生成不同的訊息
+  let notificationMessage;
+  let footerText;
+  
+  if (statusChange.isRecovery) {
+    notificationMessage = `🎉 服務恢復正常！${config.siteName} 已重新上線`;
+    footerText = 'Upptime 監控系統 - 服務恢復通知';
+  } else if (statusChange.isOutage) {
+    notificationMessage = `🚨 服務異常！${config.siteName} 目前無法訪問`;
+    footerText = 'Upptime 監控系統 - 服務異常通知';
+  } else if (statusChange.changed) {
+    notificationMessage = isUp 
+      ? `✅ 狀態變化 - ${config.siteName} 現在正常運行`
+      : `⚠️ 狀態變化 - ${config.siteName} 服務異常`;
+    footerText = 'Upptime 監控系統 - 狀態變化通知';
+  } else {
+    // 如果沒有變化，不應該發送通知
+    return null;
+  }
+
+  const fields = [
+    {
+      title: '當前狀態',
+      value: statusText,
+      short: true
+    },
+    {
+      title: '響應時間',
+      value: `${config.responseTime}ms`,
+      short: true
+    },
+    {
+      title: '運行時間',
+      value: config.uptime,
+      short: true
+    },
+    {
+      title: '檢查時間',
+      value: new Date(config.lastChecked).toLocaleString('zh-TW'),
+      short: true
+    }
+  ];
+
+  // 如果有之前的狀態，添加狀態變化資訊
+  if (statusChange.previousStatus) {
+    const previousStatusText = statusChange.previousStatus === 'up' ? '正常' : '異常';
+    fields.push({
+      title: '之前狀態',
+      value: previousStatusText,
+      short: true
+    });
+  }
 
   return JSON.stringify({
     attachments: [{
       color: color,
       title: `${statusEmoji} ${config.siteName} - ${statusText}`,
       title_link: config.siteUrl,
-      fields: [
-        {
-          title: '狀態',
-          value: statusText,
-          short: true
-        },
-        {
-          title: '響應時間',
-          value: `${config.responseTime}ms`,
-          short: true
-        },
-        {
-          title: '運行時間',
-          value: config.uptime,
-          short: true
-        },
-        {
-          title: '最後檢查',
-          value: new Date(config.lastChecked).toLocaleString('zh-TW'),
-          short: true
-        }
-      ],
-      footer: 'Upptime 監控系統',
+      text: notificationMessage,
+      fields: fields,
+      footer: footerText,
       ts: Math.floor(Date.now() / 1000)
     }]
   });
@@ -175,41 +271,74 @@ function generateSlackPayload() {
 /**
  * 生成 Discord 格式的 payload
  */
-function generateDiscordPayload() {
+function generateDiscordPayload(statusChange) {
   const isUp = config.status === 'up';
   const statusEmoji = isUp ? '🟢' : '🔴';
   const statusText = isUp ? '正常運行' : '服務異常';
   const color = isUp ? 0x00ff00 : 0xff0000;
+  
+  // 根據狀態變化類型生成不同的訊息
+  let notificationMessage;
+  let footerText;
+  
+  if (statusChange.isRecovery) {
+    notificationMessage = `🎉 服務恢復正常！${config.siteName} 已重新上線`;
+    footerText = 'Upptime 監控系統 - 服務恢復通知';
+  } else if (statusChange.isOutage) {
+    notificationMessage = `🚨 服務異常！${config.siteName} 目前無法訪問`;
+    footerText = 'Upptime 監控系統 - 服務異常通知';
+  } else if (statusChange.changed) {
+    notificationMessage = isUp 
+      ? `✅ 狀態變化 - ${config.siteName} 現在正常運行`
+      : `⚠️ 狀態變化 - ${config.siteName} 服務異常`;
+    footerText = 'Upptime 監控系統 - 狀態變化通知';
+  } else {
+    // 如果沒有變化，不應該發送通知
+    return null;
+  }
+
+  const fields = [
+    {
+      name: '當前狀態',
+      value: statusText,
+      inline: true
+    },
+    {
+      name: '響應時間',
+      value: `${config.responseTime}ms`,
+      inline: true
+    },
+    {
+      name: '運行時間',
+      value: config.uptime,
+      inline: true
+    },
+    {
+      name: '檢查時間',
+      value: new Date(config.lastChecked).toLocaleString('zh-TW'),
+      inline: true
+    }
+  ];
+
+  // 如果有之前的狀態，添加狀態變化資訊
+  if (statusChange.previousStatus) {
+    const previousStatusText = statusChange.previousStatus === 'up' ? '正常' : '異常';
+    fields.push({
+      name: '之前狀態',
+      value: previousStatusText,
+      inline: true
+    });
+  }
 
   return JSON.stringify({
     embeds: [{
       title: `${statusEmoji} ${config.siteName} - ${statusText}`,
       url: config.siteUrl,
+      description: notificationMessage,
       color: color,
-      fields: [
-        {
-          name: '狀態',
-          value: statusText,
-          inline: true
-        },
-        {
-          name: '響應時間',
-          value: `${config.responseTime}ms`,
-          inline: true
-        },
-        {
-          name: '運行時間',
-          value: config.uptime,
-          inline: true
-        },
-        {
-          name: '最後檢查',
-          value: new Date(config.lastChecked).toLocaleString('zh-TW'),
-          inline: true
-        }
-      ],
+      fields: fields,
       footer: {
-        text: 'Upptime 監控系統'
+        text: footerText
       },
       timestamp: new Date(config.lastChecked).toISOString()
     }]
@@ -219,7 +348,33 @@ function generateDiscordPayload() {
 /**
  * 生成自定義格式的 payload
  */
-function generateCustomPayload() {
+function generateCustomPayload(statusChange) {
+  const isUp = config.status === 'up';
+  
+  // 根據狀態變化類型生成不同的訊息
+  let notificationMessage;
+  let notificationType;
+  let severity;
+  
+  if (statusChange.isRecovery) {
+    notificationMessage = `🎉 服務恢復正常！${config.siteName} 已重新上線`;
+    notificationType = 'service_recovery';
+    severity = 'success';
+  } else if (statusChange.isOutage) {
+    notificationMessage = `🚨 服務異常！${config.siteName} 目前無法訪問`;
+    notificationType = 'service_outage';
+    severity = 'error';
+  } else if (statusChange.changed) {
+    notificationMessage = isUp 
+      ? `✅ 狀態變化 - ${config.siteName} 現在正常運行`
+      : `⚠️ 狀態變化 - ${config.siteName} 服務異常`;
+    notificationType = 'status_change';
+    severity = isUp ? 'info' : 'warning';
+  } else {
+    // 如果沒有變化，不應該發送通知
+    return null;
+  }
+
   return JSON.stringify({
     site: {
       name: config.siteName,
@@ -228,12 +383,19 @@ function generateCustomPayload() {
       responseTime: parseInt(config.responseTime),
       uptime: config.uptime,
       lastChecked: config.lastChecked,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      previousStatus: statusChange.previousStatus
     },
     notification: {
-      type: config.status === 'up' ? 'status_up' : 'status_down',
-      message: `${config.siteName} 服務狀態: ${config.status === 'up' ? '正常' : '異常'}`,
-      severity: config.status === 'up' ? 'info' : 'warning'
+      type: notificationType,
+      message: notificationMessage,
+      severity: severity,
+      checkType: 'status_change_monitoring',
+      statusChange: {
+        changed: statusChange.changed,
+        isRecovery: statusChange.isRecovery,
+        isOutage: statusChange.isOutage
+      }
     }
   });
 }
@@ -243,32 +405,67 @@ function generateCustomPayload() {
  */
 async function main() {
   try {
-    console.log(`開始發送 webhook 通知...`);
+    console.log(`開始檢查狀態變化...`);
     console.log(`網站: ${config.siteName}`);
-    console.log(`狀態: ${config.status}`);
+    console.log(`當前狀態: ${config.status}`);
     console.log(`響應時間: ${config.responseTime}ms`);
+
+    // 檢測狀態變化
+    const statusChange = detectStatusChange(config.status);
+    
+    console.log(`狀態變化檢測結果:`, {
+      changed: statusChange.changed,
+      previousStatus: statusChange.previousStatus,
+      currentStatus: statusChange.currentStatus,
+      isRecovery: statusChange.isRecovery,
+      isOutage: statusChange.isOutage
+    });
+
+    // 如果沒有狀態變化，跳過通知
+    if (!statusChange.changed) {
+      console.log('📊 狀態無變化，跳過通知');
+      return;
+    }
+
+    // 根據狀態變化類型選擇通知類型
+    let notificationType;
+    if (statusChange.isRecovery) {
+      notificationType = '服務恢復';
+    } else if (statusChange.isOutage) {
+      notificationType = '服務異常';
+    } else {
+      notificationType = '狀態變化';
+    }
+
+    console.log(`📢 檢測到 ${notificationType}，準備發送通知...`);
 
     let payload;
     let sendFunction;
 
     switch (config.webhookType.toLowerCase()) {
       case 'slack':
-        payload = generateSlackPayload();
+        payload = generateSlackPayload(statusChange);
         sendFunction = sendSlackWebhook;
         break;
       case 'discord':
-        payload = generateDiscordPayload();
+        payload = generateDiscordPayload(statusChange);
         sendFunction = sendDiscordWebhook;
         break;
       case 'custom':
       default:
-        payload = generateCustomPayload();
+        payload = generateCustomPayload(statusChange);
         sendFunction = sendCustomWebhook;
         break;
     }
 
+    // 檢查是否生成了有效的 payload
+    if (!payload) {
+      console.log('⚠️ 未生成有效 payload，跳過通知');
+      return;
+    }
+
     await sendFunction(payload);
-    console.log('✅ Webhook 通知發送成功');
+    console.log(`✅ ${notificationType} 通知發送成功`);
   } catch (error) {
     console.error('❌ Webhook 通知發送失敗:', error.message);
     process.exit(1);
@@ -287,5 +484,8 @@ module.exports = {
   generateCustomPayload,
   sendSlackWebhook,
   sendDiscordWebhook,
-  sendCustomWebhook
+  sendCustomWebhook,
+  detectStatusChange,
+  readStatusHistory,
+  saveStatusHistory
 };

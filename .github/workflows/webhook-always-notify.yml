@@ -1,0 +1,42 @@
+name: Smart Status Change Notifications
+
+on:
+  schedule:
+    # 每5分鐘執行一次，與 uptime 檢查同步
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [webhook-notify]
+
+jobs:
+  smart-status-notifications:
+    name: Send Smart Status Change Notifications
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Smart Status Change Notifications
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          WEBHOOK_TYPE: ${{ secrets.WEBHOOK_TYPE || 'discord' }}
+        run: |
+          echo "🚀 開始智慧狀態變化監控..."
+          
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "⚠️ WEBHOOK_URL 未設定，跳過通知"
+            exit 0
+          fi
+
+          # 使用新的智慧監控腳本
+          node scripts/smart-monitor.js
+
