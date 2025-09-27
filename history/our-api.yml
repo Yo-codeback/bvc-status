@@ -1,7 +1,7 @@
 url: https://bvc-api.deno.dev
-status: down
-code: 404
-responseTime: 194
-lastUpdated: 2025-09-27T09:23:00.832Z
+status: up
+code: 200
+responseTime: 446
+lastUpdated: 2025-09-27T09:26:00.996Z
 startTime: 2025-08-10T14:56:13.929Z
 generator: Upptime <https://github.com/upptime/upptime>
