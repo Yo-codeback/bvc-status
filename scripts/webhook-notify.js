@@ -287,28 +287,56 @@ function generateSlackPayload(statusChange) {
 function generateDiscordPayload(statusChange) {
   const config = getConfig();
   const isUp = config.status === 'up';
-  const statusEmoji = isUp ? '🟢' : '🔴';
-  const statusText = isUp ? '正常運行' : '服務異常';
-  const color = isUp ? 0x00ff00 : 0xff0000;
+  const isSlow = config.status === 'slow';
+  const isDown = config.status === 'down';
+  
+  let statusEmoji, statusText, color;
+  if (isUp) {
+    statusEmoji = '🟢';
+    statusText = '正常運行';
+    color = 0x00ff00; // 綠色
+  } else if (isSlow) {
+    statusEmoji = '🟡';
+    statusText = '運行緩慢';
+    color = 0xffa500; // 橙色
+  } else {
+    statusEmoji = '🔴';
+    statusText = '服務異常';
+    color = 0xff0000; // 紅色
+  }
   
   // 根據狀態變化類型生成不同的訊息
   let notificationMessage;
   let footerText;
   
   if (statusChange.isRecovery) {
-    notificationMessage = `🎉 服務恢復正常！${config.siteName} 已重新上線`;
+    if (isSlow) {
+      notificationMessage = `🔄 服務恢復但運行緩慢 - ${config.siteName} 已重新上線但響應較慢`;
+    } else {
+      notificationMessage = `🎉 服務恢復正常！${config.siteName} 已重新上線`;
+    }
     footerText = 'Upptime 監控系統 - 服務恢復通知';
   } else if (statusChange.isOutage) {
     notificationMessage = `🚨 服務異常！${config.siteName} 目前無法訪問`;
     footerText = 'Upptime 監控系統 - 服務異常通知';
   } else if (statusChange.changed) {
-    notificationMessage = isUp 
-      ? `✅ 狀態變化 - ${config.siteName} 現在正常運行`
-      : `⚠️ 狀態變化 - ${config.siteName} 服務異常`;
+    if (isUp) {
+      notificationMessage = `✅ 狀態變化 - ${config.siteName} 現在正常運行`;
+    } else if (isSlow) {
+      notificationMessage = `⚠️ 狀態變化 - ${config.siteName} 現在運行緩慢`;
+    } else {
+      notificationMessage = `⚠️ 狀態變化 - ${config.siteName} 服務異常`;
+    }
     footerText = 'Upptime 監控系統 - 狀態變化通知';
   } else if (statusChange.changed === false && statusChange.isRecovery === false && statusChange.isOutage === false) {
     // 狀態沒有變化，但需要發送例行檢查通知
-    notificationMessage = `📊 例行檢查完成 - ${config.siteName} 運行正常`;
+    if (isUp) {
+      notificationMessage = `📊 例行檢查完成 - ${config.siteName} 運行正常`;
+    } else if (isSlow) {
+      notificationMessage = `📊 例行檢查完成 - ${config.siteName} 運行緩慢但可用`;
+    } else {
+      notificationMessage = `📊 例行檢查完成 - ${config.siteName} 服務異常`;
+    }
     footerText = 'Upptime 監控系統 - 例行檢查通知';
   } else {
     // 如果沒有變化且未啟用每次檢查通知，不應該發送通知

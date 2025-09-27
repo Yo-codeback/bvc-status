@@ -31,7 +31,7 @@ jobs:
 
       - name: Run Smart Status Monitoring
         env:
-          WEBHOOK_URL: ${{ secrets.NOTIFICATION_DISCORD_WEBHOOK_URL }}
+          WEBHOOK_URL: ${{ secrets.NOTIFICATION_DISCORD_SMART }}
           WEBHOOK_TYPE: ${{ secrets.WEBHOOK_TYPE || 'discord' }}
           NOTIFY_ON_CHECK: 'true'
         run: |

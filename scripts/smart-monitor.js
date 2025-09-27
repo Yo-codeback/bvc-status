@@ -54,16 +54,30 @@ function determineServiceStatus(responseTimeData, uptimeData) {
     return uptimeData.status;
   }
   
-  // 根據顏色判斷狀態（Upptime 的慣例）
+  // 根據顏色和運行時間綜合判斷狀態
   const responseColor = responseTimeData.color;
   const uptimeColor = uptimeData.color;
+  const uptimeValue = parseFloat(uptimeData.message.replace('%', ''));
   
-  // 如果響應時間或運行時間顯示紅色，則為異常
-  if (responseColor === 'red' || uptimeColor === 'red') {
+  // 如果運行時間顯示紅色，則為異常
+  if (uptimeColor === 'red') {
     return 'down';
   }
   
-  // 如果響應時間顯示橙色，可能是慢但可用
+  // 如果運行時間很高（>95%），即使響應時間慢也認為是正常的（只是慢）
+  if (uptimeValue > 95) {
+    if (responseColor === 'red') {
+      return 'slow'; // 慢但可用
+    }
+    return 'up';
+  }
+  
+  // 如果響應時間顯示紅色且運行時間不高，則為異常
+  if (responseColor === 'red') {
+    return 'down';
+  }
+  
+  // 如果響應時間顯示橙色或黃色，可能是慢但可用
   if (responseColor === 'orange' || responseColor === 'yellow') {
     return 'slow';
   }
