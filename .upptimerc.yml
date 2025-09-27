@@ -23,7 +23,7 @@ status-website:
   # baseUrl: /your-repo-name
   logoUrl: https://raw.githubusercontent.com/upptime/upptime.js.org/master/static/img/icon.svg
   name: "農產分析"
-  introTitle: "農產分析 android 版本 現在正在實施封測!"
+  introTitle: "農產分析 即時運作狀況"
   introMessage: "此網站由 upptime 提供協助"
   navbar:
     - title: Status
