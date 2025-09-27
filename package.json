@@ -1,0 +1,34 @@
+{
+  "name": "bvc-status-monitoring",
+  "version": "1.0.0",
+  "description": "智慧狀態監控系統 - 只在狀態變化時發送 Discord 通知",
+  "main": "scripts/smart-monitor.js",
+  "scripts": {
+    "start": "node scripts/smart-monitor.js",
+    "test": "node scripts/test-smart-monitor.js",
+    "test-discord": "node scripts/test-discord-webhook.js",
+    "check-config": "node scripts/check-discord-config.js"
+  },
+  "keywords": [
+    "monitoring",
+    "webhook",
+    "discord",
+    "status",
+    "upptime"
+  ],
+  "author": "BVC Status Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/bvc-status.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/bvc-status/issues"
+  },
+  "homepage": "https://github.com/your-username/bvc-status#readme"
+}
