@@ -1,7 +1,7 @@
 url: https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx
-status: down
-code: 0
-responseTime: 0
-lastUpdated: 2026-01-08T16:46:58.746Z
+status: up
+code: 200
+responseTime: 19525
+lastUpdated: 2026-01-08T16:53:31.331Z
 startTime: 2025-08-10T14:56:15.070Z
 generator: Upptime <https://github.com/upptime/upptime>
