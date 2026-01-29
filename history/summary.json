@@ -11,8 +11,8 @@
     "uptimeMonth": "99.98%",
     "uptimeYear": "99.97%",
     "time": 642,
-    "timeDay": 821,
-    "timeWeek": 800,
+    "timeDay": 822,
+    "timeWeek": 801,
     "timeMonth": 701,
     "timeYear": 642,
     "dailyMinutesDown": {
@@ -41,7 +41,7 @@
     "timeMonth": 0,
     "timeYear": 1913,
     "dailyMinutesDown": {
-      "2026-01-29": 86,
+      "2026-01-29": 105,
       "2026-01-28": 1440,
       "2026-01-27": 1440,
       "2026-01-26": 1440,
@@ -128,18 +128,19 @@
     "url": "https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx",
     "icon": "https://icons.duckduckgo.com/ip3/data.moa.gov.tw.ico",
     "slug": "moa-api",
-    "status": "up",
-    "uptime": "99.01%",
-    "uptimeDay": "98.18%",
-    "uptimeWeek": "95.97%",
-    "uptimeMonth": "94.42%",
-    "uptimeYear": "99.01%",
+    "status": "down",
+    "uptime": "99.02%",
+    "uptimeDay": "98.06%",
+    "uptimeWeek": "95.96%",
+    "uptimeMonth": "94.45%",
+    "uptimeYear": "99.02%",
     "time": 16629,
     "timeDay": 18207,
     "timeWeek": 17685,
     "timeMonth": 17092,
     "timeYear": 16629,
     "dailyMinutesDown": {
+      "2026-01-29": 2,
       "2026-01-28": 26,
       "2026-01-27": 19,
       "2026-01-26": 101,
@@ -160,7 +161,7 @@
       "2026-01-11": 114,
       "2026-01-10": 83,
       "2026-01-09": 101,
-      "2026-01-08": 24
+      "2026-01-08": 7
     }
   },
   {
@@ -176,7 +177,7 @@
     "uptimeYear": "100.00%",
     "time": 239,
     "timeDay": 305,
-    "timeWeek": 302,
+    "timeWeek": 303,
     "timeMonth": 259,
     "timeYear": 239,
     "dailyMinutesDown": {}
