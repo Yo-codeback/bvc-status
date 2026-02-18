@@ -12,7 +12,7 @@
     "uptimeYear": "99.97%",
     "time": 653,
     "timeDay": 1168,
-    "timeWeek": 850,
+    "timeWeek": 852,
     "timeMonth": 802,
     "timeYear": 653,
     "dailyMinutesDown": {
@@ -41,7 +41,7 @@
     "timeMonth": 0,
     "timeYear": 1913,
     "dailyMinutesDown": {
-      "2026-02-18": 61,
+      "2026-02-18": 104,
       "2026-02-17": 1440,
       "2026-02-16": 1440,
       "2026-02-15": 1440,
@@ -150,13 +150,13 @@
     "slug": "moa-api",
     "status": "up",
     "uptime": "99.00%",
-    "uptimeDay": "86.43%",
+    "uptimeDay": "89.40%",
     "uptimeWeek": "95.84%",
     "uptimeMonth": "94.05%",
     "uptimeYear": "99.00%",
     "time": 16660,
     "timeDay": 9087,
-    "timeWeek": 14369,
+    "timeWeek": 14363,
     "timeMonth": 17325,
     "timeYear": 16660,
     "dailyMinutesDown": {
@@ -205,7 +205,7 @@
     "uptimeYear": "99.98%",
     "time": 242,
     "timeDay": 364,
-    "timeWeek": 313,
+    "timeWeek": 314,
     "timeMonth": 305,
     "timeYear": 242,
     "dailyMinutesDown": {
